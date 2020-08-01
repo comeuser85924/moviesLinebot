@@ -11,7 +11,8 @@ import configparser
 
 import random
 import requests
-
+from datetime import datetime, timedelta
+import time
 app = Flask(__name__)
 
 # LINE 聊天機器人的基本資料
@@ -20,7 +21,6 @@ config.read('config.ini')
 
 line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
 handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
-
 
 # 近期上映
 comimg_movieUrl = 'https://capi.showtimes.com.tw/1/programs/listUpcomingForStore/1?days=30&nocache=0'
@@ -31,109 +31,111 @@ listPopularForStore = 'https://capi.showtimes.com.tw/1/programs/listPopularForSt
 popular_res = requests.get(listPopularForStore)
 popularArray = popular_res.json()['payload']['programs']
 # 電影時刻表
-listPopularForStore = 'https://capi.showtimes.com.tw/1/programs/listPopularForStore/1?nocache=0'
-popular_res = requests.get(listPopularForStore)
-popularArray = popular_res.json()['payload']['programs']
+listForCorporation = 'https://capi.showtimes.com.tw/1/events/listForCorporation/2?date='+datetime.now().strftime('%Y-%m-%d')+'&limit=2000'
+timetable_res = requests.get(listForCorporation)
+timetableArray = timetable_res.json()['payload']['programs']
+eventArray = timetable_res.json()['payload']['events']
+
+# 廳房邏輯(待處理)
+#  961 ->3聽  969->11聽 966->6廳 958->4廳 960->14廳 936->10廳 968->12廳
 
 # 電影時刻表flex message
-def moviesList2():
-    return{
-        "type": "bubble",
-        "hero": {
-            "type": "image",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_3_movie.png",
-            "size": "full",
-            "aspectRatio": "20:13",
-            "aspectMode": "cover",
-            "action": {
-                "type": "uri",
-                "uri": "http://linecorp.com/"
-            }
-        },
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "spacing": "md",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": "屍速列車：感染半島",
-                    "wrap": True,
-                    "weight": "bold",
-                    "gravity": "center",
-                    "size": "xl"
-                },
-                {
-                    "type": "box",
-                    "layout": "baseline",
-                    "margin": "md",
-                    "contents": [
-                        {
-                            "type": "text",
-                            "text": "欣欣秀泰 影廳時刻表(07/20)",
-                            "size": "sm",
-                            "color": "#999999",
-                            "margin": "md",
-                            "flex": 0
-                        }
-                    ]
-                },
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "margin": "lg",
-                    "spacing": "sm",
-                    "contents": [
-                        {
-                            "type": "box",
-                            "layout": "baseline",
-                            "spacing": "sm",
-                            "contents": [
-                                {
-                                    "type": "text",
-                                    "text": "1廳",
-                                    "color": "#aaaaaa",
-                                    "size": "sm",
-                                    "flex": 1
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "10:20 12:40 15:00 17:20 19:40 22:00 00:20",
-                                    "wrap": True,
-                                    "size": "sm",
-                                    "color": "#666666",
-                                    "flex": 4
-                                }
-                            ]
+def handleMoviesListTime(array1, array2, type):
+    moviesList = []
+    for item in array1:
+        moviesList.append(
+            {
+                "type": "bubble",
+                        "hero": {
+                            "type": "image",
+                            "url": item['coverImagePortrait']['url'],
+                            "size": "full",
+                            "aspectRatio": "20:13",
+                            "aspectMode": "cover",
+                            "action": {
+                                "type": "uri",
+                                "uri": "https://www.showtimes.com.tw/events/byProgram/"+str(item['id'])
+                            }
                         },
-                        {
+                "body": {
                             "type": "box",
-                            "layout": "baseline",
-                            "spacing": "sm",
+                            "layout": "vertical",
+                            "spacing": "md",
                             "contents": [
                                 {
                                     "type": "text",
-                                    "text": "2廳",
-                                    "color": "#aaaaaa",
-                                    "size": "sm",
-                                    "flex": 1
+                                    "text": item['name'],
+                                    "wrap": True,
+                                    "weight": "bold",
+                                    "gravity": "center",
+                                    "size": "xl"
                                 },
                                 {
-                                    "type": "text",
-                                    "text": "11:20 13:40 16:00 18:20 20:40 23:00 01:20",
-                                    "wrap": True,
-                                    "color": "#666666",
-                                    "size": "sm",
-                                    "flex": 4
+                                    "type": "box",
+                                    "layout": "baseline",
+                                    "margin": "md",
+                                    "contents": [
+                                        {
+                                            "type": "text",
+                                            "text": "欣欣秀泰 影廳時刻表("+datetime.now().strftime('%Y-%m-%d')+")",
+                                            "size": "sm",
+                                            "color": "#999999",
+                                            "margin": "md",
+                                            "flex": 0
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "vertical",
+                                    "margin": "lg",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "box",
+                                            "layout": "baseline",
+                                            "spacing": "sm",
+                                            "contents": [
+                                                {
+                                                    "type": "text",
+                                                    "text": "1廳",
+                                                    "color": "#aaaaaa",
+                                                    "size": "sm",
+                                                    "flex": 1
+                                                },
+                                                {
+                                                    "type": "text",
+                                                    # "10:20 12:40 15:00 17:20 19:40 22:00 00:20"
+                                                    "text": moviesTime(item['id']),
+                                                    "wrap": True,
+                                                    "size": "sm",
+                                                    "color": "#666666",
+                                                    "flex": 4
+                                                }
+                                            ]
+                                        },
+                                    ]
                                 }
                             ]
                         }
-                    ]
-                }
-            ]
-        }
-    }
+            }
+        )
 
+    return moviesList[0:10]
+#時刻表 
+def moviesTime(id):
+    time_text = ''
+    for item2 in eventArray:
+        if(id == item2['programId'] and handleTimeDate(item2['startedAt']) != None):
+            time_text += ' ' + handleTimeDate(item2['startedAt'])
+    return time_text
+# 日期時間轉換格式
+def handleTimeDate(datetimes):
+    date_ = datetime.strptime(datetimes, "%Y-%m-%dT%H:%M:%S.%fZ")
+    local_date = (date_ + timedelta(hours=8)).strftime('%Y-%m-%d')
+    if(local_date == time.strftime("%Y-%m-%d", time.localtime())):
+        local_time = (date_ + timedelta(hours=8)).strftime('%H:%M')
+        return local_time
 # 現正熱映、近期上映 flex message
 def handleMoviesList(array, types):
     moviesList = []
@@ -240,6 +242,16 @@ def handleMoviesList(array, types):
                                     "type": "message",
                                     "label": "海報",
                                     "text": types + item['name'] + "海報"
+                                }
+                            },
+                            {
+                                "type": "button",
+                                "style": "link",
+                                "height": "sm",
+                                "action": {
+                                    "type": "message",
+                                    "label": "電影說明",
+                                    "text": types + item['name'] + "電影說明"
                                 }
                             },
                             {
@@ -351,6 +363,16 @@ def handleMoviesList(array, types):
                                 }
                             },
                             {
+                                "type": "button",
+                                "style": "link",
+                                "height": "sm",
+                                "action": {
+                                    "type": "message",
+                                    "label": "電影說明",
+                                    "text": types + item['name'] + "電影說明"
+                                }
+                            },
+                            {
                                 "type": "spacer",
                                 "size": "sm"
                             }
@@ -388,7 +410,7 @@ def handle_message(event):
     # print(type(msg))
     msg = msg.encode('utf-8')
     # 如果是近期上映 預告片/海報
-    if ('近期上映' in event.message.text and '預告片' in event.message.text) or ('近期上映' in event.message.text and '海報' in event.message.text):
+    if ('近期上映' in event.message.text and '預告片' in event.message.text) or ('近期上映' in event.message.text and '海報' in event.message.text) or ('近期上映' in event.message.text and '電影說明' in event.message.text):
         for item in comimgArray:
             if event.message.text == '近期上映' + item['name'] + '預告片':
                 print(item['previewVideo']['url'])
@@ -402,8 +424,19 @@ def handle_message(event):
                 # 回傳海報
                 line_bot_api.reply_message(event.reply_token, ImageSendMessage(
                     original_content_url=item['coverImagePortrait']['url'], preview_image_url=item['coverImagePortrait']['url']))
+            elif event.message.text == '近期上映' + item['name'] + '電影說明':
+                # 回傳電影說明
+                line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text=
+                    '電影名稱:' + '\n' + item['name'] + 
+                    '\n\n' +
+                    '導演:' + '\n' + ','.join(item['meta']['directors']) + '\n' +
+                    '演員:' + '\n' + ','.join(item['meta']['authors']) + 
+                    '\n\n' +
+                    '電影簡介:' + '\n' +item['description'].replace('<br/>',''))
+                )
     # 如果是現正熱映 預告片/海報
-    elif ('現正熱映' in event.message.text and '預告片' in event.message.text) or ('現正熱映' in event.message.text and '海報' in event.message.text):
+    elif ('現正熱映' in event.message.text and '預告片' in event.message.text) or ('現正熱映' in event.message.text and '海報' in event.message.text) or ('現正熱映' in event.message.text and '電影說明' in event.message.text):
         for item in popularArray:
             if event.message.text == '現正熱映' + item['name'] + '預告片':
                 print(item['previewVideo']['url'])
@@ -417,6 +450,18 @@ def handle_message(event):
                 # 回傳海報
                 line_bot_api.reply_message(event.reply_token, ImageSendMessage(
                     original_content_url=item['coverImagePortrait']['url'], preview_image_url=item['coverImagePortrait']['url']))
+            elif event.message.text == '現正熱映' + item['name'] + '電影說明':
+                print('電影說明')
+                # 回傳電影說明
+                line_bot_api.reply_message(
+                    event.reply_token, TextSendMessage(text=
+                    '電影名稱:' + '\n' + item['name'] + 
+                    '\n\n' +
+                    '導演:' + '\n' + ','.join(item['meta']['directors']) + '\n' + 
+                    '演員:' + '\n' + ','.join(item['meta']['authors']) + 
+                    '\n\n' +
+                    '電影簡介:' + '\n' +item['description'].replace('<br/>',''))
+                )
     # 近期上映
     elif event.message.text == "近期上映":
         flex_message = FlexSendMessage(
@@ -443,7 +488,7 @@ def handle_message(event):
             alt_text='你好，以下為電影時刻表',
             contents={
                 "type": "carousel",
-                "contents": moviesList2(popularArray, '電影時刻表')
+                "contents": handleMoviesListTime(timetableArray, eventArray, '電影時刻表')
             }
         )
         line_bot_api.reply_message(event.reply_token, flex_message)
@@ -540,7 +585,7 @@ def handle_message(event):
                 ]
             )
         )
-        line_bot_api.reply_message(event.reply_token, buttons_template)   
+        line_bot_api.reply_message(event.reply_token, buttons_template)
     elif event.message.text == "Confirm template":
         print("Confirm template")
         Confirm_template = TemplateSendMessage(
